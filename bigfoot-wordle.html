@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Squatch Wordle — Leavenworth Edition</title>
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --pine:    #1B3A2D;
+    --pine2:   #254d3c;
+    --amber:   #D4721A;
+    --amber2:  #f0882a;
+    --cream:   #F2EAD8;
+    --cream2:  #e8dcca;
+    --slate:   #4A5568;
+    --brown:   #6B4226;
+    --brown2:  #8B5A35;
+    --correct: #3a7d44;
+    --present: #b07d2a;
+    --absent:  #4a5568;
+  }
+
+  /* ── LAYOUT: full-height, no scroll ── */
+  html, body {
+    height: 100%; height: 100dvh;
+    overflow: hidden;
+  }
+
+  body {
+    background: var(--pine);
+    color: var(--cream);
+    font-family: 'Special Elite', cursive;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(212,114,26,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, rgba(107,66,38,0.15) 0%, transparent 60%);
+  }
+
+  /* ── TREES ── */
+  .trees {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 80px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .tree {
+    position: absolute;
+    bottom: 0;
+    width: 0; height: 0;
+    border-left: solid transparent;
+    border-right: solid transparent;
+    border-bottom: solid;
+  }
+  .tree::before {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px; height: 10px;
+    background: #2c1a0e;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 8px 16px 6px;
+    width: 100%;
+    flex-shrink: 0;
+    border-bottom: 1.5px solid rgba(212,114,26,0.3);
+  }
+  .eyebrow {
+    font-size: 0.58rem;
+    letter-spacing: 0.18em;
+    color: var(--amber);
+    text-transform: uppercase;
+    opacity: 0.85;
+    margin-bottom: 2px;
+  }
+  h1 {
+    font-family: 'Rye', serif;
+    font-size: clamp(1.2rem, 5vw, 1.8rem);
+    color: var(--cream);
+    line-height: 1.1;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.4);
+  }
+  h1 span { color: var(--amber); }
+  .subtitle {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--cream2);
+    opacity: 0.55;
+    margin-top: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── TOOLBAR ── */
+  .toolbar {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    padding: 6px 12px 2px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .tool-btn {
+    background: rgba(242,234,216,0.1);
+    border: 1.5px solid rgba(242,234,216,0.2);
+    color: var(--cream);
+    border-radius: 20px;
+    padding: 4px 11px;
+    font-family: 'Special Elite', cursive;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .tool-btn:hover { background: rgba(212,114,26,0.25); border-color: var(--amber); }
+
+  /* ── MESSAGE BAR ── */
+  #message {
+    position: relative;
+    z-index: 10;
+    height: 22px;
+    padding: 2px 20px;
+    text-align: center;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    color: var(--amber2);
+    flex-shrink: 0;
+  }
+
+  /* ── HINT BAR ── */
+  #hint-area {
+    position: relative;
+    z-index: 1;
+    font-size: 0.65rem;
+    color: var(--amber);
+    opacity: 0.8;
+    letter-spacing: 0.05em;
+    text-align: center;
+    padding: 0 16px 3px;
+    font-style: italic;
+    min-height: 18px;
+    line-height: 1.3;
+    flex-shrink: 0;
+  }
+
+  /* ── BOARD: tiles sized via CSS variable set by JS ── */
+  #board-wrap {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    padding: 2px 0 6px;
+    flex-shrink: 0;
+  }
+  .row { display: flex; gap: var(--gap); }
+
+  .tile {
+    width: var(--tile); height: var(--tile);
+    border: 2px solid rgba(242,234,216,0.18);
+    border-radius: 4px;
+    background: rgba(242,234,216,0.07);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Rye', serif;
+    font-size: calc(var(--tile) * 0.48);
+    color: var(--cream);
+    text-transform: uppercase;
+    user-select: none;
+  }
+  .tile.filled {
+    border-color: rgba(242,234,216,0.45);
+    animation: pop 0.1s ease;
+  }
+  .tile.reveal { animation: flip 0.5s ease forwards; }
+  .tile[data-state="correct"] { --reveal-bg: var(--correct); --reveal-border: var(--correct); }
+  .tile[data-state="present"] { --reveal-bg: var(--present); --reveal-border: var(--present); }
+  .tile[data-state="absent"]  { --reveal-bg: var(--absent);  --reveal-border: var(--absent); }
+
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+  @keyframes flip {
+    0%  { transform: rotateX(0deg); background: rgba(242,234,216,0.07); border-color: rgba(242,234,216,0.18); }
+    49% { transform: rotateX(90deg); background: rgba(242,234,216,0.07); }
+    50% { transform: rotateX(90deg); background: var(--reveal-bg); border-color: var(--reveal-border); }
+    100%{ transform: rotateX(0deg); background: var(--reveal-bg); border-color: var(--reveal-border); }
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%     { transform: translateX(-6px); }
+    40%     { transform: translateX(6px); }
+    60%     { transform: translateX(-4px); }
+    80%     { transform: translateX(4px); }
+  }
+  .row.shake { animation: shake 0.4s ease; }
+
+  /* ── KEYBOARD ── */
+  #keyboard {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    align-items: center;
+    padding: 0 6px 8px;
+    width: 100%;
+    flex-shrink: 0;
+  }
+  .kb-row { display: flex; gap: var(--gap); }
+  .key {
+    height: var(--key-h);
+    min-width: var(--key-w);
+    padding: 0 3px;
+    border-radius: 5px;
+    background: rgba(242,234,216,0.14);
+    border: 1.5px solid rgba(242,234,216,0.12);
+    color: var(--cream);
+    font-family: 'Special Elite', cursive;
+    font-size: var(--key-font);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s, transform 0.08s;
+    text-transform: uppercase;
+    user-select: none;
+  }
+  .key:active { transform: scale(0.94); }
+  .key.wide { min-width: calc(var(--key-w) * 1.5); font-size: calc(var(--key-font) * 0.85); }
+  .key[data-state="correct"] { background: var(--correct); border-color: var(--correct); color: #fff; }
+  .key[data-state="present"] { background: var(--present); border-color: var(--present); color: #fff; }
+  .key[data-state="absent"]  { background: rgba(74,85,104,0.6); border-color: var(--absent); color: rgba(255,255,255,0.45); }
+
+  /* ── OVERLAY BACKDROP ── */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(10,25,18,0.85);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .overlay.show { display: flex; }
+
+  /* ── MODAL BOX (shared) ── */
+  .modal-box {
+    background: linear-gradient(160deg, #1f4433, #162e23);
+    border: 2px solid rgba(212,114,26,0.45);
+    border-radius: 10px;
+    padding: 28px 32px;
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+  .modal-close {
+    position: absolute;
+    top: 10px; right: 14px;
+    background: none;
+    border: none;
+    color: var(--cream2);
+    font-size: 1.3rem;
+    cursor: pointer;
+    opacity: 0.6;
+    line-height: 1;
+  }
+  .modal-close:hover { opacity: 1; }
+  .modal-icon { font-size: 2.6rem; margin-bottom: 10px; }
+  .modal-title {
+    font-family: 'Rye', serif;
+    font-size: 1.4rem;
+    color: var(--amber);
+    margin-bottom: 10px;
+  }
+  .modal-word {
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cream2);
+    opacity: 0.65;
+    margin-bottom: 4px;
+  }
+  .modal-answer {
+    font-family: 'Rye', serif;
+    font-size: 2rem;
+    color: var(--cream);
+    margin-bottom: 6px;
+    letter-spacing: 0.1em;
+  }
+  .modal-hint-text {
+    font-size: 0.78rem;
+    color: var(--amber);
+    opacity: 0.85;
+    margin-bottom: 20px;
+    line-height: 1.5;
+    font-style: italic;
+  }
+  .btn-play {
+    background: var(--amber);
+    color: var(--pine);
+    border: none;
+    border-radius: 6px;
+    padding: 11px 26px;
+    font-family: 'Rye', serif;
+    font-size: 1rem;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn-play:hover { background: var(--amber2); transform: scale(1.03); }
+
+  /* ── CAMPFIRE ── */
+  .fire-wrap {
+    display: none;
+    justify-content: center;
+    margin-bottom: 10px;
+    font-size: 1.8rem;
+    gap: 4px;
+  }
+  .fire-wrap.show { display: flex; }
+  .fire-wrap span { animation: flicker 0.6s infinite alternate; }
+  .fire-wrap span:nth-child(2) { animation-delay: 0.2s; }
+  .fire-wrap span:nth-child(3) { animation-delay: 0.1s; }
+  @keyframes flicker {
+    0%   { transform: scale(1) rotate(-3deg); }
+    100% { transform: scale(1.15) rotate(3deg); }
+  }
+
+  /* ── HOW TO PLAY MODAL ── */
+  .legend {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 14px 0 18px;
+    text-align: left;
+  }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: var(--cream2);
+  }
+  .legend-tile {
+    width: 40px; height: 40px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Rye', serif;
+    font-size: 1.2rem;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .legend-tile.correct { background: var(--correct); }
+  .legend-tile.present { background: var(--present); }
+  .legend-tile.absent  { background: var(--absent); }
+
+  .how-rule {
+    font-size: 0.8rem;
+    color: var(--cream2);
+    opacity: 0.75;
+    line-height: 1.6;
+    margin-bottom: 6px;
+  }
+  .how-divider {
+    border: none;
+    border-top: 1px solid rgba(212,114,26,0.2);
+    margin: 14px 0;
+  }
+
+  /* ── TRAIL MAP MODAL ── */
+  .trail-map-box {
+    max-width: 460px;
+    text-align: left;
+  }
+  .trail-map-box .modal-title { text-align: center; }
+  .trail-section-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    opacity: 0.8;
+    margin: 14px 0 6px;
+    border-bottom: 1px solid rgba(212,114,26,0.2);
+    padding-bottom: 4px;
+  }
+  .trail-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .trail-chip {
+    background: rgba(242,234,216,0.09);
+    border: 1px solid rgba(242,234,216,0.15);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-family: 'Rye', serif;
+    font-size: 0.78rem;
+    color: var(--cream);
+    letter-spacing: 0.06em;
+    cursor: default;
+  }
+  .trail-chip.guessed-correct { background: var(--correct); border-color: var(--correct); }
+  .trail-chip.guessed-miss    { background: rgba(74,85,104,0.4); border-color: var(--absent); color: rgba(255,255,255,0.45); }
+  .trail-note {
+    font-size: 0.72rem;
+    color: var(--cream2);
+    opacity: 0.5;
+    margin-top: 14px;
+    text-align: center;
+    font-style: italic;
+  }
+
+  /* ── BIGFOOT SVG ── */
+  .bigfoot-svg {
+    position: fixed;
+    bottom: 100px; right: -10px;
+    width: 90px;
+    opacity: 0.1;
+    pointer-events: none;
+    z-index: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="trees" id="trees"></div>
+
+<svg class="bigfoot-svg" viewBox="0 0 100 200" fill="var(--cream)">
+  <ellipse cx="50" cy="28" rx="18" ry="22"/>
+  <rect x="32" y="46" width="36" height="55" rx="10"/>
+  <rect x="20" y="52" width="14" height="40" rx="7"/>
+  <rect x="66" y="52" width="14" height="40" rx="7"/>
+  <rect x="30" y="98" width="18" height="55" rx="9"/>
+  <rect x="52" y="98" width="18" height="55" rx="9"/>
+  <ellipse cx="38" cy="154" rx="12" ry="8"/>
+  <ellipse cx="62" cy="154" rx="12" ry="8"/>
+</svg>
+
+<!-- HEADER -->
+<header>
+  <div class="eyebrow">🌲 Leavenworth, WA · Deep Woods Edition 🌲</div>
+  <h1>SQUATCH<span>ORDLE</span></h1>
+  <div class="subtitle">Guess the 5-letter wilderness word · 6 tries</div>
+</header>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <button class="tool-btn" onclick="openHow()">❓ How to Play</button>
+  <button class="tool-btn" id="hint-btn" onclick="revealHint()">🦶 Hint</button>
+  <button class="tool-btn" onclick="openTrailMap()">🗺️ Trail Map</button>
+</div>
+
+<div id="message"></div>
+<div id="hint-area"></div>
+<div id="board-wrap"></div>
+<div id="keyboard">
+  <div class="kb-row" id="kb-row-1"></div>
+  <div class="kb-row" id="kb-row-2"></div>
+  <div class="kb-row" id="kb-row-3"></div>
+</div>
+
+<!-- ── GAME OVER MODAL ── -->
+<div class="overlay" id="modal">
+  <div class="modal-box">
+    <div class="fire-wrap" id="fire">🔥<span>🔥</span>🔥</div>
+    <div class="modal-icon" id="modal-icon">🦶</div>
+    <div class="modal-title" id="modal-title">Dang!</div>
+    <div class="modal-word">The word was</div>
+    <div class="modal-answer" id="modal-answer"></div>
+    <div class="modal-hint-text" id="modal-hint"></div>
+    <button class="btn-play" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+
+<!-- ── HOW TO PLAY MODAL ── -->
+<div class="overlay" id="how-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeOverlay('how-modal')">✕</button>
+    <div class="modal-icon">📜</div>
+    <div class="modal-title">How to Play</div>
+
+    <p class="how-rule">Guess the secret 5-letter wilderness word in <strong>6 tries</strong>. After each guess, the tiles reveal how close you are.</p>
+    <hr class="how-divider">
+
+    <div class="legend">
+      <div class="legend-row">
+        <div class="legend-tile correct">B</div>
+        <div><strong style="color:var(--cream)">Right letter, right spot.</strong><br>
+        Like spotting a fresh Bigfoot print exactly where you expected it.</div>
+      </div>
+      <div class="legend-row">
+        <div class="legend-tile present">E</div>
+        <div><strong style="color:var(--cream)">Right letter, wrong spot.</strong><br>
+        The clue's on the trail — just not where you're standing yet.</div>
+      </div>
+      <div class="legend-row">
+        <div class="legend-tile absent">A</div>
+        <div><strong style="color:var(--cream)">Letter not in the word.</strong><br>
+        Cold trail. Squatch didn't go this way.</div>
+      </div>
+    </div>
+
+    <hr class="how-divider">
+    <p class="how-rule">🦶 <strong style="color:var(--amber)">Hint button</strong> — reveals a thematic clue about the word any time you need it.</p>
+    <p class="how-rule">🗺️ <strong style="color:var(--amber)">Trail Map</strong> — shows all possible words in the game. Words you've already found are marked green.</p>
+    <p class="how-rule">All words are themed around <strong style="color:var(--cream)">Bigfoot, camping, and Leavenworth, WA</strong>. Common English words are also accepted as guesses.</p>
+  </div>
+</div>
+
+<!-- ── TRAIL MAP MODAL ── -->
+<div class="overlay" id="trail-modal">
+  <div class="modal-box trail-map-box">
+    <button class="modal-close" onclick="closeOverlay('trail-modal')">✕</button>
+    <div class="modal-icon">🗺️</div>
+    <div class="modal-title">The Trail Map</div>
+    <div id="trail-map-content"></div>
+    <p class="trail-note">All possible Squatchordle words · <span style="color:var(--correct)">green = you found it</span></p>
+  </div>
+</div>
+
+<script>
+// ── WORD LIST ──────────────────────────────────────────────────────────────
+const WORDS = [
+  // ── BIGFOOT & CRYPTID ──────────────────────────────────────────────────
+  { w:"PROWL", cat:"bigfoot", h:"What Bigfoot does through the dark pine forest at night" },
+  { w:"HAIRY", cat:"bigfoot", h:"The most-used word in every Bigfoot eyewitness report" },
+  { w:"BEAST", cat:"bigfoot", h:"Locals around Stevens Pass have called him this for decades" },
+  { w:"HOWLS", cat:"bigfoot", h:"Sounds echoing from Tumwater Canyon after midnight" },
+  { w:"STALK", cat:"bigfoot", h:"Moving silently through old-growth timber" },
+  { w:"SNIFF", cat:"bigfoot", h:"How Bigfoot reportedly first detects humans on the trail" },
+  { w:"ROAMS", cat:"bigfoot", h:"What the legendary Ape Canyon creature does endlessly" },
+  { w:"TRACK", cat:"bigfoot", h:"What researchers search for in muddy creek banks" },
+  { w:"SCOUT", cat:"bigfoot", h:"Rangers and researchers who survey backcountry terrain" },
+  { w:"HIDES", cat:"bigfoot", h:"What the Sasquatch does when it hears your Nalgene clink" },
+  { w:"SPOOR", cat:"bigfoot", h:"Tracks, droppings, and signs of wildlife on a forest trail" },
+  { w:"GRUFF", cat:"bigfoot", h:"The deep, gravelly voice of a creature you don't want to meet" },
+  { w:"LURKS", cat:"bigfoot", h:"What something very large does just beyond the tree line" },
+  { w:"GROWL", cat:"bigfoot", h:"The low warning sound recorded on the 1994 Cascades audio tape" },
+  { w:"FETCH", cat:"bigfoot", h:"A Scottish word for a doppelganger — cryptid cousins worldwide" },
+  { w:"WOOLY", cat:"bigfoot", h:"Like a mammoth, or a certain large PNW primate's winter coat" },
+  { w:"SNARE", cat:"bigfoot", h:"A trap researchers set hoping to catch evidence — never works" },
+  { w:"FLEEK", cat:"bigfoot", h:"Bigfoot's brow game is, reportedly, very much on it" },
+  { w:"GIANT", cat:"bigfoot", h:"At 8–10 feet tall, the Sasquatch earns this label easily" },
+  { w:"STOMP", cat:"bigfoot", h:"How those 18-inch footprints get pressed deep into creek mud" },
+  { w:"MYTHS", cat:"bigfoot", h:"Ancient Indigenous traditions of the wild man of the woods" },
+  { w:"VAPOR", cat:"bigfoot", h:"Bigfoot sightings have a way of disappearing like morning mist" },
+  { w:"CLUES", cat:"bigfoot", h:"Hair samples, broken branches, and odd prints are all you get" },
+  { w:"FOUND", cat:"bigfoot", h:"What Bigfoot hunters hope — but never quite manage — to say" },
+  { w:"WOODS", cat:"bigfoot", h:"The dark, dense PNW forest that is Bigfoot's undisputed home" },
+  { w:"NIGHT", cat:"bigfoot", h:"When most Sasquatch encounters around Leavenworth are reported" },
+  { w:"SCENT", cat:"bigfoot", h:"Witnesses report a powerful, musky odor just before a sighting" },
+  { w:"SNARL", cat:"bigfoot", h:"The facial expression in the famous Patterson-Gimlin frame" },
+  { w:"LARGE", cat:"bigfoot", h:"The first word out of every eyewitness's mouth" },
+  { w:"GLOOM", cat:"bigfoot", h:"The murky half-light of old-growth forest where Squatch hides" },
+
+  // ── CAMPING & OUTDOORS ─────────────────────────────────────────────────
+  { w:"EMBER", cat:"camping", h:"The glowing heart of a dying campfire on a cold Cascades night" },
+  { w:"BLAZE", cat:"camping", h:"Trail marker painted on a pine — or a very enthusiastic campfire" },
+  { w:"SPIRE", cat:"camping", h:"The dramatic peak of a Cascade fir silhouetted at dusk" },
+  { w:"FLASK", cat:"camping", h:"What every seasoned hiker keeps tucked in their hip pocket" },
+  { w:"KAYAK", cat:"camping", h:"Paddle sport on the Wenatchee River through downtown" },
+  { w:"TROUT", cat:"camping", h:"What you're hoping for when fly fishing in Icicle Creek" },
+  { w:"ROCKY", cat:"camping", h:"The terrain above the tree line in the Enchantments" },
+  { w:"SMOKE", cat:"camping", h:"What drifts upward from campfire rings all through Oktoberfest" },
+  { w:"BIRCH", cat:"camping", h:"White-barked trees lining the Leavenworth waterfront" },
+  { w:"CEDAR", cat:"camping", h:"The fragrant, deep-red wood of the Pacific Northwest" },
+  { w:"RIDGE", cat:"camping", h:"The crest separating two Cascade valleys" },
+  { w:"TRAIL", cat:"camping", h:"There are over 200 miles of them in the Leavenworth area" },
+  { w:"PLAID", cat:"camping", h:"The unofficial uniform of Pacific Northwest flannel culture" },
+  { w:"FLINT", cat:"camping", h:"Strike it for sparks — fire-starting old-school style" },
+  { w:"CANOE", cat:"camping", h:"Quiet watercraft perfect for Wenatchee Lake at dawn" },
+  { w:"CLIFF", cat:"camping", h:"Rock climbers flock to Icicle Canyon's granite walls" },
+  { w:"LODGE", cat:"camping", h:"Where weary Leavenworth hikers rest their boots" },
+  { w:"TENTS", cat:"camping", h:"Clusters of nylon shelters filling Icicle River campground" },
+  { w:"MOSSY", cat:"camping", h:"How every rock and log looks after a Cascades rainstorm" },
+  { w:"STEEP", cat:"camping", h:"The grade on the Icicle Ridge Trail will make your calves cry" },
+  { w:"GROAN", cat:"camping", h:"What you do at mile 8 when you realize camp is at mile 12" },
+  { w:"BEARS", cat:"camping", h:"Hang your food — black bears are active throughout the Cascades" },
+  { w:"CREEK", cat:"camping", h:"Tumwater flows through Leavenworth canyon toward the Columbia" },
+  { w:"TREAD", cat:"camping", h:"Leave No Trace — walk lightly on the earth" },
+  { w:"GORGE", cat:"camping", h:"The dramatic carved valley of the Columbia or Tumwater Canyon" },
+  { w:"STOVE", cat:"camping", h:"A backpacker's tiny titanium cooking companion" },
+  { w:"ASCOT", cat:"camping", h:"What you wish you'd packed when the Cascades morning turns cold" },
+  { w:"SLOPE", cat:"camping", h:"The angle of Mission Ridge ski terrain in winter" },
+  { w:"KNOLL", cat:"camping", h:"A small rounded hill — great for spotting wildlife at dusk" },
+  { w:"FERNS", cat:"camping", h:"The lush green carpet covering every Cascade forest floor" },
+  { w:"PINES", cat:"camping", h:"Ponderosa and lodgepole varieties dominate around Leavenworth" },
+  { w:"MILES", cat:"camping", h:"What accumulates fast on a Enchantments permit" },
+  { w:"BOOTS", cat:"camping", h:"Waterproof ones are non-negotiable in the wet Cascades" },
+  { w:"GULLY", cat:"camping", h:"A steep ravine carved by snowmelt rushing downhill each spring" },
+  { w:"TRAMP", cat:"camping", h:"To walk with heavy boots through wet underbrush" },
+  { w:"AWASH", cat:"camping", h:"How the valley floor looks after the April snowmelt" },
+  { w:"ASPEN", cat:"camping", h:"Golden in October — the trembling trees of the eastern Cascades" },
+  { w:"ALDER", cat:"camping", h:"Fast-growing PNW riparian tree found along every creek bank" },
+  { w:"THORN", cat:"camping", h:"What catches your sleeve when you stray off the trail" },
+  { w:"SKUNK", cat:"camping", h:"Another PNW creature with a powerful odor — possibly Bigfoot's cousin" },
+  { w:"MOOSE", cat:"camping", h:"Rarely seen but very real in the upper Icicle watershed" },
+  { w:"STORM", cat:"camping", h:"Cascades weather changes fast — always pack a rain shell" },
+  { w:"FLARE", cat:"camping", h:"Emergency signal — hopefully you'll never need it in the backcountry" },
+  { w:"REEDY", cat:"camping", h:"The marshy edge of Wenatchee Lake, home to red-winged blackbirds" },
+  { w:"BRIAR", cat:"camping", h:"The thorny tangle that guards the best huckleberry patches" },
+  { w:"DROWN", cat:"camping", h:"The fate of unchecked campfire coals — always drown them out" },
+  { w:"VISTA", cat:"camping", h:"What opens up when you finally crest the last switchback" },
+  { w:"POLAR", cat:"camping", h:"The temperature rating on a serious Cascades sleeping bag" },
+
+  // ── LEAVENWORTH & BAVARIAN ─────────────────────────────────────────────
+  { w:"STEIN", cat:"leavenworth", h:"A liter of Oktoberfest lager, hoisted in front of Front Street" },
+  { w:"WALTZ", cat:"leavenworth", h:"The dance of choice at Leavenworth's Autumn Leaf Festival" },
+  { w:"POLKA", cat:"leavenworth", h:"The accordion-driven music filling Leavenworth streets in fall" },
+  { w:"BRATS", cat:"leavenworth", h:"Bratwurst sausages grilled at every Leavenworth festival booth" },
+  { w:"FROST", cat:"leavenworth", h:"First sign of winter on the Leavenworth valley floor" },
+  { w:"CHIME", cat:"leavenworth", h:"The sound of cowbells at Leavenworth's Christmas Lighting Festival" },
+  { w:"APPLE", cat:"leavenworth", h:"Wenatchee Valley is Washington's apple capital" },
+  { w:"GLINT", cat:"leavenworth", h:"The sparkle of Icicle Creek in morning sunlight" },
+  { w:"HOLLY", cat:"leavenworth", h:"Decorates every window box in Leavenworth during the holidays" },
+  { w:"YODEL", cat:"leavenworth", h:"An Alpine singing style heard at Leavenworth's Maifest each spring" },
+  { w:"LEDGE", cat:"leavenworth", h:"The narrow Bavarian balconies overflowing with geraniums on Front St" },
+  { w:"PRETZ", cat:"leavenworth", h:"Soft pretzel — the essential Bavarian snack at any Leavenworth festival" },
+  { w:"MARCH", cat:"leavenworth", h:"When Maifest preparations begin and the valley starts to thaw" },
+  { w:"FEAST", cat:"leavenworth", h:"What every Leavenworth festival becomes by mid-afternoon" },
+  { w:"CHOIR", cat:"leavenworth", h:"The Leavenworth International Choral Festival draws singers worldwide" },
+  { w:"CROWN", cat:"leavenworth", h:"The Bavarian-style peaked rooflines that define Leavenworth's skyline" },
+  { w:"GAVEL", cat:"leavenworth", h:"Drops at the start of every Leavenworth City Council meeting downtown" },
+  { w:"GLAZE", cat:"leavenworth", h:"The icing on a Bavarian apple strudel from a Front Street bakery" },
+  { w:"LILAC", cat:"leavenworth", h:"Blooms profusely in Leavenworth gardens each May, scenting the whole town" },
+  { w:"KRAUT", cat:"leavenworth", h:"Sauerkraut — essential topping on a Leavenworth bratwurst" },
+  { w:"CLOCK", cat:"leavenworth", h:"The Glockenspiel on Front Street plays every half hour" },
+  { w:"MILLS", cat:"leavenworth", h:"Old timber and grain mills shaped the Wenatchee Valley's early economy" },
+  { w:"PLUMS", cat:"leavenworth", h:"Grown in Wenatchee Valley orchards alongside the famous apples" },
+  { w:"CIDER", cat:"leavenworth", h:"Hard cider from local Wenatchee Valley apples — a fall festival staple" },
+  { w:"PLAZA", cat:"leavenworth", h:"The Leavenworth town center where every festival sets up its mainstage" },
+  { w:"TORCH", cat:"leavenworth", h:"Carried in the Leavenworth Christmas Lighting parade through downtown" },
+  { w:"SLEEK", cat:"leavenworth", h:"The new gondola cars at Stevens Pass — smooth, fast, breathtaking views" },
+  { w:"SWANS", cat:"leavenworth", h:"The Bavarian-themed fountain at the town center features these birds" },
+  { w:"IVORY", cat:"leavenworth", h:"The color of snow blanketing Leavenworth during the Christmas festival" },
+  { w:"NACHT", cat:"leavenworth", h:"German for night — Gute Nacht from the Bavarian village!" },
+
+  // ── PACIFIC NORTHWEST ──────────────────────────────────────────────────
+  { w:"RAINY", cat:"pnw", h:"The default weather setting for most of Washington State" },
+  { w:"MISTY", cat:"pnw", h:"How mornings feel in the Cascades foothills from October to May" },
+  { w:"SOGGY", cat:"pnw", h:"What your boots become after a November hike west of the Cascades" },
+  { w:"FJORD", cat:"pnw", h:"Hood Canal is Washington's only true saltwater fjord" },
+  { w:"INLET", cat:"pnw", h:"Puget Sound's many fingers reaching deep into the land" },
+  { w:"FUNGI", cat:"pnw", h:"Chanterelles, morels, matsutake — the PNW is a forager's paradise" },
+  { w:"SPORE", cat:"pnw", h:"How the PNW's legendary mushrooms and ferns spread through the forest" },
+  { w:"SLUGS", cat:"pnw", h:"The banana slug is the unofficial mascot of western Washington trails" },
+  { w:"FERRY", cat:"pnw", h:"The Washington State Ferry system is the largest in the country" },
+  { w:"HERON", cat:"pnw", h:"The great blue heron stands motionless in every PNW estuary" },
+  { w:"EAGLE", cat:"pnw", h:"Bald eagles nest along the Skagit River every winter by the hundreds" },
+  { w:"SMOLT", cat:"pnw", h:"Young salmon beginning their journey from river to ocean" },
+  { w:"SPAWN", cat:"pnw", h:"What salmon do in the upper Wenatchee and Icicle rivers each fall" },
+  { w:"TRAWL", cat:"pnw", h:"A fishing method used off the Washington coast for halibut and cod" },
+  { w:"CLAMS", cat:"pnw", h:"Razor clams on the Long Beach Peninsula — a Washington tradition" },
+  { w:"GROVE", cat:"pnw", h:"A stand of ancient Douglas fir — the cathedral of the PNW" },
+  { w:"STUMP", cat:"pnw", h:"Remnant of the great timber industry that built the Pacific Northwest" },
+  { w:"FLUME", cat:"pnw", h:"Wooden water channels once used to float logs down Cascade hillsides" },
+  { w:"LUPIN", cat:"pnw", h:"The purple wildflower that carpets subalpine meadows every summer" },
+  { w:"OXBOW", cat:"pnw", h:"A river bend cut off to form a crescent lake — common in river valleys" },
+  { w:"DELTA", cat:"pnw", h:"The Skagit River delta — prime habitat for snow geese each winter" },
+  { w:"LAHAR", cat:"pnw", h:"A volcanic mudflow — the legacy hazard from Mt. Rainier" },
+  { w:"MAGMA", cat:"pnw", h:"Still churning beneath Mt. Baker, Rainier, and St. Helens" },
+  { w:"SCREE", cat:"pnw", h:"The loose rock field you slip through approaching any Cascade summit" },
+  { w:"TALUS", cat:"pnw", h:"Boulder fields at the base of Cascade cliffs, home to pikas" },
+  { w:"OUZEL", cat:"pnw", h:"The American dipper — Washington's only songbird that swims underwater" },
+  { w:"GREBE", cat:"pnw", h:"A diving waterbird common on Wenatchee and Chelan lakes in winter" },
+  { w:"LOONS", cat:"pnw", h:"Their haunting call echoes across mountain lakes on still autumn nights" },
+  { w:"SWIFT", cat:"pnw", h:"Vaux's swifts roost by the thousands in a Monroe chimney each September" },
+  { w:"SOUND", cat:"pnw", h:"Puget Sound — the inland sea that defines western Washington life" },
+  { w:"TIDES", cat:"pnw", h:"Minus tides on Hood Canal reveal a hidden world of clams and crabs" },
+  { w:"WHALE", cat:"pnw", h:"Gray whales migrate past Cape Flattery each spring" },
+  { w:"SNOWY", cat:"pnw", h:"The snowy owl visits eastern Washington in irruption winters" },
+  { w:"RAVEN", cat:"pnw", h:"The most intelligent bird in the PNW forest — always watching" },
+  { w:"OCHRE", cat:"pnw", h:"The rusty earth-tone of Columbia Plateau basalt at sunset" },
+  { w:"CHUMS", cat:"pnw", h:"Chum salmon — one of five Pacific salmon species in Washington rivers" },
+  { w:"COHOS", cat:"pnw", h:"Silver salmon — among the most prized catches in PNW rivers" },
+  { w:"FOGGY", cat:"pnw", h:"The standard November morning description west of the Cascades" },
+  { w:"BRINY", cat:"pnw", h:"The salty tang of low tide on a Puget Sound beach" },
+  { w:"FIRTH", cat:"pnw", h:"A narrow sea inlet — the Scottish word fits Hood Canal perfectly" },
+  { w:"SPRAY", cat:"pnw", h:"What hits your face on a Washington coast winter day" },
+  { w:"BRINE", cat:"pnw", h:"The salty solution Puget Sound Dungeness crab is packed in" },
+  { w:"TROVE", cat:"pnw", h:"A tide pool at low tide — a treasure chest of PNW sea life" },
+  { w:"PERCH", cat:"pnw", h:"Yellow perch are common in eastern Washington lakes and reservoirs" },
+  { w:"SHRUB", cat:"pnw", h:"Sagebrush steppe dominates the landscape east of the Cascades" },
+  { w:"SEDGE", cat:"pnw", h:"Grasslike wetland plants lining every Cascade meadow stream" },
+  { w:"BLUFF", cat:"pnw", h:"The dramatic coastal cliffs of the Olympic Peninsula" },
+  { w:"SURGE", cat:"pnw", h:"A king tide surge flooding the low shores of South Puget Sound" },
+  { w:"DRIFT", cat:"pnw", h:"Driftwood lines every Washington ocean beach after a winter storm" },
+  { w:"WRACK", cat:"pnw", h:"Seaweed and debris left at the tide line on a Washington beach" },
+  { w:"SLEET", cat:"pnw", h:"The nasty in-between precipitation of a Cascades pass in November" },
+  { w:"DUNNO", cat:"pnw", h:"What every weather forecaster says about a Cascades winter storm" },
+  { w:"PLUME", cat:"pnw", h:"The ash cloud Mt. St. Helens sent across the continent in 1980" },
+  { w:"BASLT", cat:"pnw", h:"The dark volcanic rock underlying much of eastern Washington" },
+  { w:"PUMIE", cat:"pnw", h:"Light volcanic rock scattered across eastern slopes after St. Helens" },
+  { w:"MUDDY", cat:"pnw", h:"The condition of every trailhead parking lot from October to June" },
+  { w:"LEAFY", cat:"pnw", h:"The canopy of a bigleaf maple forest in full summer glory" },
+  { w:"KELPY", cat:"pnw", h:"The salty, briny smell of low tide in a San Juan Islands cove" },
+  { w:"LOAMY", cat:"pnw", h:"The rich, dark soil of the Willamette and Skagit valleys" },
+];
+
+const VALID_WORDS = WORDS.filter(e => e.w.length === 5);
+
+const CAT_LABELS = {
+  bigfoot:     "🦶 Bigfoot & Cryptid",
+  camping:     "🏕️ Camping & Outdoors",
+  leavenworth: "🇩🇪 Leavenworth & Bavarian",
+  pnw:          "🌧️ Pacific Northwest"
+};
+
+const EXTRA_GUESSES = ["ABOUT","ABOVE","ABUSE","ACTOR","ACUTE","ADMIT","ADOPT","ADULT","AFTER","AGAIN",
+"AGENT","AGREE","AHEAD","ALARM","ALBUM","ALIKE","ALIGN","ALLEY","ALLOW","ALONE","ALONG","ALTER",
+"ANGEL","ANGER","ANGLE","ANKLE","ANNEX","APART","APPLY","ARENA","ARGUE","ARISE","ARMOR",
+"ARRAY","ARROW","ASIDE","ASKED","ATLAS","ATTIC","AUDIO","AUDIT","AVOID","AWAKE","AWARD","AWFUL",
+"BAKED","BAKER","BASIC","BASIS","BATCH","BEGAN","BEGIN","BEING","BELOW","BENCH","BIBLE","BLACK",
+"BLADE","BLAND","BLANK","BLAST","BLEED","BLEND","BLINK","BLOCK","BLOOD","BLOOM","BLOWN","BLUES",
+"BOARD","BONUS","BOOST","BOOTH","BOXER","BRAND","BRAVE","BREAD","BREAK","BRING","BROAD","BROKE",
+"BROWN","BUILD","BUILT","BUYER","CABIN","CABLE","CAMEL","CANDY","CARGO","CARRY",
+"CATCH","CAUSE","CHAOS","CHARM","CHART","CHASE","CHECK","CHESS","CHIEF","CHILD","CHIPS",
+"CHOIR","CIVIC","CIVIL","CLAIM","CLASS","CLEAN","CLEAR","CLEFT","CLERK","CLICK","CLIMB","CLING",
+"CLOCK","CLOSE","CLOTH","CLOUD","COACH","COAST","COBRA","COLOR","COMMA","COULD","COUNT",
+"COURT","COVER","CRACK","CRAFT","CRANE","CRASH","CRAZY","CREAM","CROSS","CROWD","CROWN","CRUSH",
+"CURVE","CYCLE","DAILY","DANCE","DEALT","DEATH","DELAY","DELTA","DEPTH","DIGIT","DIRTY",
+"DISCO","DODGE","DOING","DONOR","DOUBT","DOUGH","DRAFT","DRAIN","DRAMA","DRAWN","DRESS",
+"DRIFT","DRINK","DRIVE","DROVE","DRYER","DUSTY","DWARF","EAGLE","EARLY","EARTH",
+"ELECT","EMAIL","ENEMY","ENTER","ENTRY","EPOCH","EQUAL","ERROR","ESSAY","EVERY","EXACT","EXIST",
+"EXTRA","FAINT","FAITH","FALSE","FANCY","FATAL","FAULT","FAVOR","FEAST","FENCE","FEVER","FIBER",
+"FIELD","FIFTH","FIFTY","FIGHT","FINAL","FIRST","FIXED","FLESH","FLEET","FLOAT","FLOOD","FLOOR",
+"FLUID","FOCAL","FOCUS","FORCE","FORGE","FORTH","FOUND","FRAME","FRAUD","FRESH","FRONT","FROZE",
+"FRUIT","FULLY","FUNDS","FUNNY","GHOST","GIANT","GIVEN","GLAND","GLASS","GLOBE","GLOOM",
+"GOING","GRACE","GRADE","GRAIN","GRAND","GRANT","GRASP","GRASS","GRAVE","GREAT","GREEN","GREET",
+"GRIEF","GROUP","GROVE","GROWN","GUARD","GUESS","GUEST","GUIDE","GUILT","GUSTS","HABIT",
+"HAPPY","HARSH","HATCH","HAVEN","HEART","HEAVY","HEDGE","HENCE","HERBS","HINGE","HONOR",
+"HORSE","HOTEL","HUMAN","HUMOR","HURRY","IDEAL","IMAGE","INBOX","INFER","INNER","INPUT",
+"ISSUE","IVORY","JEWEL","JOINT","JOKER","JUDGE","JUICE","JUICY","JUMBO","KNACK",
+"KNIFE","KNOCK","KNOWN","LABEL","LARGE","LASER","LATER","LAYER","LEARN","LEAST","LEMON",
+"LEVEL","LIGHT","LIMIT","LOCAL","LOGIC","LOWER","LUCKY","LUNAR","LUNCH","MAKER","MANOR","MATCH",
+"MAYOR","MEANT","MEDIA","MERCY","METAL","MIGHT","MINOR","MIXED","MODEL","MONEY","MONTH","MORAL",
+"MOTOR","MOURN","MOUSE","MOUTH","MOVED","MOVIE","MUSIC","NAIVE","NAMED","NAVAL",
+"NERVE","NIGHT","NOBLE","NOISE","NORTH","NOTES","NOVEL","NURSE","OCCUR","OCEAN","OFFER",
+"OFTEN","ONSET","OPERA","ORBIT","ORDER","OTHER","OUNCE","OUTER","OWNER","OXIDE","OZONE",
+"PANIC","PAPER","PARTY","PATCH","PAUSE","PEACE","PHASE","PHONE","PIANO","PILOT",
+"PIXEL","PIZZA","PLACE","PLAIN","PLANE","PLANT","PLATE","POKER","POWER","PRESS",
+"PRICE","PRIDE","PRIOR","PROOF","PROSE","PROUD","PROVE","PUNCH","PUPIL","QUEEN","QUEST",
+"QUEUE","QUICK","QUIET","QUOTA","QUOTE","RADAR","RADIO","RAISE","RALLY","RANCH","RANGE","RAPID",
+"RATIO","REACH","REALM","REBEL","REFER","REIGN","RELAX","RELAY","REMIX","REPAY","RESET","RIVER",
+"ROBOT","ROUND","ROUTE","ROYAL","RULES","SCENE","SCORE","SEIZE","SENSE","SERVE","SETUP",
+"SEVEN","SHADE","SHAPE","SHARE","SHARK","SHARP","SHELF","SHELL","SHIFT","SHIRT","SHOCK","SHOOT",
+"SHOWN","SILLY","SINCE","SKILL","SMALL","SMART","SMELL","SNEAK","SOLAR","SOLID","SOLVE","SORRY",
+"SOUTH","SPACE","SPARE","SPARK","SPEAK","SPEED","SPEND","SPENT","SPINE","SPITE","SPLIT",
+"SPOKE","SQUAD","STAFF","STAGE","STAKE","STAND","START","STATE","STAYS","STEAM","STEEP","STEEL",
+"STILL","STOCK","STONE","STOOD","STORE","STORM","STORY","STRAP","STRAW","STUDY","STUFF",
+"SUGAR","SUITE","SUPER","SURGE","SWIFT","SWORN","TABLE","TASTE","TEACH","THEME",
+"THEIR","THING","THICK","THINK","THIRD","THOSE","THROW","TIGHT","TIMER","TITLE","TODAY","TOKEN",
+"TOPIC","TOTAL","TOUCH","TOUGH","TOWER","TOXIC","TRADE","TRAIT","TREAT","TRIBE",
+"TRIED","TRUST","TRUTH","TWIST","ULTRA","UNDER","UNION","UNITY","UNTIL","UPPER","UPSET","USAGE",
+"USING","USUAL","UTTER","VAGUE","VALID","VALUE","VALVE","VAPOR","VERSE","VIRAL","VISIT",
+"VITAL","VIVID","VOCAL","VOICE","VOTER","WASTE","WATCH","WATER","WEARY","WEIGH",
+"WEIRD","WHEAT","WHEEL","WHERE","WHILE","WHITE","WHOLE","WHOSE","WIDTH","WITCH","WOMAN","WOMEN",
+"WORLD","WORRY","WORSE","WORST","WORTH","WOULD","WOUND","WRIST","WROTE","YACHT","YIELD","YOUNG",
+"YOUTH","YUMMY","ZEBRA","ZESTY","ZONES"];
+
+const ACCEPTED = new Set([...VALID_WORDS.map(e => e.w), ...EXTRA_GUESSES]);
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let targetEntry, currentRow, currentCol, board, gameOver, hintShown;
+const foundWords = new Set();
+
+function newGame() {
+  closeOverlay('modal');
+  targetEntry = VALID_WORDS[Math.floor(Math.random() * VALID_WORDS.length)];
+  currentRow = 0; currentCol = 0;
+  board = Array.from({length:6}, () => Array(5).fill(''));
+  gameOver = false; hintShown = false;
+  buildBoard(); buildKeyboard();
+  showMessage('');
+  document.getElementById('hint-area').textContent = '';
+  document.getElementById('hint-btn').style.opacity = '1';
+  document.getElementById('hint-btn').disabled = false;
+}
+
+// ── BUILD BOARD ───────────────────────────────────────────────────────────
+function buildBoard() {
+  const wrap = document.getElementById('board-wrap');
+  wrap.innerHTML = '';
+  for (let r = 0; r < 6; r++) {
+    const row = document.createElement('div');
+    row.className = 'row'; row.id = `row-${r}`;
+    for (let c = 0; c < 5; c++) {
+      const tile = document.createElement('div');
+      tile.className = 'tile'; tile.id = `tile-${r}-${c}`;
+      row.appendChild(tile);
+    }
+    wrap.appendChild(row);
+  }
+}
+
+// ── KEYBOARD ──────────────────────────────────────────────────────────────
+const KB_ROWS = [
+  ['Q','W','E','R','T','Y','U','I','O','P'],
+  ['A','S','D','F','G','H','J','K','L'],
+  ['ENTER','Z','X','C','V','B','N','M','⌫']
+];
+function buildKeyboard() {
+  KB_ROWS.forEach((keys,i) => {
+    const row = document.getElementById(`kb-row-${i+1}`);
+    row.innerHTML = '';
+    keys.forEach(k => {
+      const btn = document.createElement('button');
+      btn.className = 'key' + (k.length>1?' wide':'');
+      btn.textContent = k; btn.dataset.key = k;
+      btn.addEventListener('click', () => handleKey(k));
+      row.appendChild(btn);
+    });
+  });
+}
+
+// ── INPUT ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (gameOver) return;
+  if (e.key==='Enter') handleKey('ENTER');
+  else if (e.key==='Backspace') handleKey('⌫');
+  else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
+});
+function handleKey(k) {
+  if (gameOver) return;
+  if (k==='⌫') deleteLetter();
+  else if (k==='ENTER') submitGuess();
+  else if (/^[A-Z]$/.test(k) && currentCol<5) addLetter(k);
+}
+function addLetter(l) {
+  board[currentRow][currentCol] = l;
+  const t = document.getElementById(`tile-${currentRow}-${currentCol}`);
+  t.textContent = l; t.classList.add('filled');
+  currentCol++;
+}
+function deleteLetter() {
+  if (currentCol===0) return;
+  currentCol--;
+  board[currentRow][currentCol]='';
+  const t = document.getElementById(`tile-${currentRow}-${currentCol}`);
+  t.textContent=''; t.classList.remove('filled');
+}
+
+// ── GUESS ─────────────────────────────────────────────────────────────────
+function submitGuess() {
+  if (currentCol<5) { shakeRow(); showMessage("Not enough letters, partner 🤠"); return; }
+  const guess = board[currentRow].join('');
+  if (!ACCEPTED.has(guess)) { shakeRow(); showMessage("That word's not in the trail map 🗺️"); return; }
+  showMessage('');
+  const result = evaluate(guess, targetEntry.w);
+  revealRow(currentRow, result, () => {
+    updateKeyboard(guess, result);
+    if (result.every(r=>r==='correct')) {
+      gameOver = true;
+      foundWords.add(targetEntry.w);
+      setTimeout(() => showWin(), 400);
+    } else if (currentRow===5) {
+      gameOver = true;
+      setTimeout(() => showLoss(), 400);
+    } else {
+      currentRow++; currentCol=0;
+    }
+  });
+}
+
+function evaluate(guess, target) {
+  const res = Array(5).fill('absent');
+  const tArr = target.split(''), gArr = guess.split('');
+  gArr.forEach((l,i) => { if(l===tArr[i]){res[i]='correct';tArr[i]=null;gArr[i]=null;} });
+  gArr.forEach((l,i) => { if(!l)return; const idx=tArr.indexOf(l); if(idx!==-1){res[i]='present';tArr[idx]=null;} });
+  return res;
+}
+
+function revealRow(row, result, cb) {
+  result.forEach((state,c) => {
+    const tile = document.getElementById(`tile-${row}-${c}`);
+    setTimeout(() => { tile.dataset.state=state; tile.classList.add('reveal'); }, c*120);
+  });
+  setTimeout(cb, 5*120+350);
+}
+
+const KEY_PRIORITY = {correct:3,present:2,absent:1};
+function updateKeyboard(guess, result) {
+  guess.split('').forEach((l,i) => {
+    const btn = document.querySelector(`[data-key="${l}"]`);
+    if(!btn)return;
+    const cur = KEY_PRIORITY[btn.dataset.state]||0;
+    if((KEY_PRIORITY[result[i]]||0)>cur) btn.dataset.state=result[i];
+  });
+}
+
+function shakeRow() {
+  const row=document.getElementById(`row-${currentRow}`);
+  row.classList.remove('shake'); void row.offsetWidth; row.classList.add('shake');
+  setTimeout(()=>row.classList.remove('shake'),400);
+}
+
+let msgTimer;
+function showMessage(msg, dur=2400) {
+  const el=document.getElementById('message');
+  el.textContent=msg; clearTimeout(msgTimer);
+  if(msg&&dur) msgTimer=setTimeout(()=>el.textContent='',dur);
+}
+
+// ── HINT BUTTON ───────────────────────────────────────────────────────────
+function revealHint() {
+  const area = document.getElementById('hint-area');
+  area.textContent = `🦶 ${targetEntry.h}`;
+  hintShown = true;
+  document.getElementById('hint-btn').style.opacity = '0.45';
+  document.getElementById('hint-btn').disabled = true;
+}
+
+// ── WIN / LOSS ────────────────────────────────────────────────────────────
+const WIN_MSGS = [
+  "🦶 You spotted the Squatch!","🌲 Deep woods instincts!",
+  "🎿 Sharp as a Leavenworth snowflake!","🍺 Prost! You nailed it!",
+  "🔥 Campfire champion!","🪓 First try — legendary!"
+];
+function showWin() {
+  document.getElementById('fire').classList.add('show');
+  document.getElementById('modal-icon').textContent='🏆';
+  document.getElementById('modal-title').textContent=WIN_MSGS[Math.min(currentRow,WIN_MSGS.length-1)];
+  document.getElementById('modal-answer').textContent=targetEntry.w;
+  document.getElementById('modal-hint').textContent=targetEntry.h;
+  document.getElementById('modal').classList.add('show');
+}
+function showLoss() {
+  document.getElementById('fire').classList.remove('show');
+  document.getElementById('modal-icon').textContent='🦶';
+  document.getElementById('modal-title').textContent="Squatch got away...";
+  document.getElementById('modal-answer').textContent=targetEntry.w;
+  document.getElementById('modal-hint').textContent=targetEntry.h;
+  document.getElementById('modal').classList.add('show');
+}
+
+// ── OVERLAYS ──────────────────────────────────────────────────────────────
+function openHow() { document.getElementById('how-modal').classList.add('show'); }
+function closeOverlay(id) { document.getElementById(id).classList.remove('show'); }
+
+// Close overlays on backdrop click
+['how-modal','trail-modal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e){
+    if(e.target===this) closeOverlay(id);
+  });
+});
+
+function openTrailMap() {
+  const content = document.getElementById('trail-map-content');
+  content.innerHTML = '';
+  const cats = [...new Set(VALID_WORDS.map(e=>e.cat))];
+  cats.forEach(cat => {
+    const label = document.createElement('div');
+    label.className = 'trail-section-label';
+    label.textContent = CAT_LABELS[cat] || cat;
+    content.appendChild(label);
+    const grid = document.createElement('div');
+    grid.className = 'trail-grid';
+    VALID_WORDS.filter(e=>e.cat===cat).forEach(entry => {
+      const chip = document.createElement('div');
+      chip.className = 'trail-chip';
+      chip.textContent = entry.w;
+      if (foundWords.has(entry.w)) chip.classList.add('guessed-correct');
+      else if (entry.w === targetEntry.w) { /* don't spoil current word */ }
+      grid.appendChild(chip);
+    });
+    content.appendChild(grid);
+  });
+  document.getElementById('trail-modal').classList.add('show');
+}
+
+// ── TREES ─────────────────────────────────────────────────────────────────
+function buildTrees() {
+  const wrap=document.getElementById('trees');
+  const colors=['#1a4228','#1e4f31','#163820','#224d35','#0f2d1c'];
+  for(let i=0;i<22;i++){
+    const t=document.createElement('div');
+    t.className='tree';
+    const h=60+Math.random()*80, w=30+Math.random()*30;
+    const x=(i/22)*110-5;
+    const col=colors[Math.floor(Math.random()*colors.length)];
+    t.style.cssText=`left:${x}%;border-left-width:${w/2}px;border-right-width:${w/2}px;border-bottom-width:${h}px;border-bottom-color:${col};opacity:${0.5+Math.random()*0.5}`;
+    wrap.appendChild(t);
+  }
+}
+
+// ── RESPONSIVE SIZING ─────────────────────────────────────────────────────
+function applySize() {
+  const vh = window.innerHeight;
+  const vw = window.innerWidth;
+
+  // Measure fixed UI elements (header, toolbar, message, hint, kb)
+  // We budget heights roughly: header~62, toolbar~38, msg~22, hint~18, board+kbd fill rest
+  const HEADER   = Math.min(62, vh * 0.09);
+  const TOOLBAR  = Math.min(38, vh * 0.056);
+  const MSG      = 22;
+  const HINT     = 18;
+  const KB_ROWS  = 3;
+  const BOARD_ROWS = 6;
+  const PADDING  = 20; // top/bottom breathing room
+
+  const available = vh - HEADER - TOOLBAR - MSG - HINT - PADDING;
+
+  // Board needs 6 rows of tiles + 5 gaps; keyboard needs 3 rows + 2 gaps + padding
+  // Ratio: board ~55%, keyboard ~45% of available
+  const boardH   = available * 0.54;
+  const keyH     = available * 0.44;
+
+  const gap      = Math.max(3, Math.min(6, vh * 0.007));
+  const tile     = Math.floor((boardH - 5 * gap) / 6);
+  const tileC    = Math.floor((Math.min(vw, 360) - 4 * gap) / 5);
+  const tileSize = Math.min(tile, tileC, 58);
+
+  const keyRowH  = Math.floor((keyH - 2 * gap) / 3);
+  const keyW     = Math.floor((Math.min(vw, 360) - 12 * gap) / 10);
+  const keyFont  = Math.max(10, Math.min(14, keyW * 0.38));
+
+  const root = document.documentElement;
+  root.style.setProperty('--tile', tileSize + 'px');
+  root.style.setProperty('--gap',  gap + 'px');
+  root.style.setProperty('--key-h', keyRowH + 'px');
+  root.style.setProperty('--key-w', keyW + 'px');
+  root.style.setProperty('--key-font', keyFont + 'px');
+}
+
+applySize();
+window.addEventListener('resize', applySize);
+
+buildTrees();
+newGame();
+</script>
+</body>
+</html>
